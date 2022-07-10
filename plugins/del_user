@@ -2,8 +2,8 @@
 [[ -f "$DB" ]] || alert "$DB cannot be found..contact the administrator"
 
 if file "$DB" 2>/dev/null | grep -q SQLite; then
-  notice "Removing user ${USERNAME}.."
-  sqlite3 "$DB" "pragma foreign_keys = on; DELETE FROM accounts where user='$USERNAME';"
+  notice "Removing user ${USER}.."
+  sqlite3 "$DB" "pragma foreign_keys = on; DELETE FROM accounts where user='$USER';"
   alert "Account removed, exiting..." && exit
   sleep 1
 else

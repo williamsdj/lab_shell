@@ -2,12 +2,11 @@
 # Global Declarations
 ARG="$1"
 ARGC=$#
-CONFIG=LOCATION
+CONFIG=/etc/islet/islet.conf
 COUNT=0
 LIST=()
 ANIMATE=$(which pv 2>/dev/null)
 ANIMATE_SPEED=90
-AVAILABLE_USER=1
 TIMEOUT="8h"
 
 # Store some stuff, these can be referenced from config files
@@ -19,6 +18,7 @@ export TERM
 export PPID HOST_PORT="$PPID"
 export TMOUT=60
 export CONFIG
+export USER
 readonly CLIENT SRCPORT SERVER DSTPORT SSH_TTY TERM PPID TMOUT
 
 err(){
@@ -60,7 +60,7 @@ fi
 # Globals:
 #   DB   - Location of database file
 #   USER - Owner of database file
-#   GROUp - Group of database file
+#   GROUP - Group of database file
 # Arguments:
 #   None
 # Returns:
@@ -72,7 +72,6 @@ sqlite3 "$DB" <<EOF
 PRAGMA foreign_keys = ON;
 CREATE TABLE accounts (
         user VARCHAR PRIMARY KEY,
-        password VARCHAR,
         ts TIMESTAMP
 );
 CREATE TABLE environments (
@@ -84,17 +83,6 @@ EOF
 return 0
 }
 
-#######################################
-# Recreate database if it's not SQLite
-# Old versions of ISLET used text file
-# Globals:
-#   DB   - Location of database file
-# Arguments:
-#   None
-# Returns:
-#   None
-#######################################
-
 is_sqlite() {
   local file="$(which sqlite3)"
   [[ -f "$file" ]] || quit "Fatal: sqlite3 not found, is it installed and in the PATH?"
@@ -103,192 +91,27 @@ is_sqlite() {
     create_db
     test $? -eq 0 && return 0 || quit "Unable to create $DB"
   fi
-  { [[ $(stat -c %U ${DB}) == "$USER"  ]] || chown "$USER"     "$DB" 2>/dev/null; } || quit "Fatal: cannot set owner ${USER} on ${DB}, do you have permission?"
-  { [[ $(stat -c %G ${DB}) == "$GROUP" ]] || chown :"${GROUP}" "$DB" 2>/dev/null; } || quit "Fatal: cannot set group ${GROUP} on ${DB}, do you have permission?"
-  { [[ $(stat -c %a ${DB}) == 660      ]] || chmod 660         "$DB" 2>/dev/null; } || quit "Fatal: cannot set modes 660 on ${DB}, do you have permission?"
 }
 
-#######################################
-# Configures autocompletion
-# Globals:
-#   TMP - Temporary directory
-# Arguments:
-#   None
-# Returns:
-#   None
-#######################################
-
-enable_autocompletion(){
-  # Hackish way
-  TMP="/tmp/islet"
-  [[ "$PWD" == "$TMP" ]] || { mkdir -p "$TMP" && cd "$TMP"; }
-  [[ "$PWD" == "$TMP" ]] && touch {new,existing,yes,no}
-}
-
-#######################################
-# Prompt user if they're new or existing
+###################################################
+# Handles db entires for container reattachment
 # Globals:
 #   None
 # Arguments:
 #   None
 # Returns:
 #   None
-#######################################
+###################################################
 
 identify(){
-  local choice
-  enable_autocompletion
-  ask "Are you a new or existing user? "
-  prompt "choice" "notsecret" "new" "existing"
-  # Normalize to lowercase
-  choice=${choice,,}
-
-  if [[ "$choice" =~ ^[n][e][w]$ ]] ||
-     [[ "$choice" =~ ^[e][x][i][s][t][i][n][g]$ ]] ||
-     [[ "$choice" =~ ^n$ ]] || [[ "$choice" =~ ^e$ ]]
+  auth=$(sqlite3 $DB "SELECT user FROM accounts WHERE user='$USER';")
+  if [[ "$auth" ]]
   then
-    { [[ "$choice" =~ ^[n][e][w]$ ]] || [[ "$choice" =~ ^n$ ]]; } && new_user
-    { [[ "$choice" =~ ^[e][x][i][s][t][i][n][g]$ ]] || [[ "$choice" =~ ^e$ ]]; } && existing_user
+  	log "${USER}: Account already exists"
   else
-    try_again
+  	sqlite3 "$DB" "pragma foreign_keys = on; INSERT INTO accounts VALUES('"${USER}"', strftime('%s', 'now'));" 2>/dev/null || quit "Couldn't write to $DB!"
+  	log "${USER}: Account created from $CLIENT"
   fi
-}
-
-###################################################
-# Get username and password for new user
-# Globals:
-#   AVAILABLE_USER - 1 if user already exists in DB
-# Arguments:
-#   None
-# Returns:
-#   None
-###################################################
-
-new_user(){
-  notice "A temporary account will be created so that you can resume your session."
-  echo
-
-  until test "$AVAILABLE_USER" -ne 1
-  do
-    choose_username && verify_new_user
-  done
-
-  until [[ "$PASSWORD" ]] && [[ "$PASSWORD_VERIFY" ]]
-  do
-    choose_password && verify_new_password
-  done
-}
-
-choose_username(){
-  ask "Choose a username: "
-  prompt "USERNAME" "notsecret" "a-zA-Z0-9"
-  [[ "$USERNAME" ]] || { alert "Empty value not permitted" && return 1; }
-  USERNAME=$(sanitize "$USERNAME") && export USERNAME && return 0
-}
-
-choose_password(){
-  ask "Choose a password: "
-  prompt "PASSWORD" "secret" "a-zA-Z0-9{${MIN_PASSWD_LEN},}"
-  [[ "$PASSWORD" ]] || { alert "\nEmpty value not permitted" && return 1; }
-  echo
-  ask "Verify your password: "
-  prompt "PASSWORD_VERIFY" "secret"
-  [[ "$PASSWORD_VERIFY" ]] || { alert "\nEmpty value not permitted" && return 1; }
-  echo
-}
-
-###################################################
-# Handles container reattachment for existing users
-# Globals:
-#   FAILURE_COUNT - Max # of authentication failures
-#   BASE          - Environment config base filename
-# Arguments:
-#   None
-# Returns:
-#   None
-###################################################
-
-existing_user(){
-  local password
-  local hash
-  local auth
-  local exists
-  local count=1
-  notice "Your previous account is only valid for the length of the event, after that you must create a new account"
-  echo
-  while test "$count" -le "$FAILURE_COUNT"; do
-    ask "Username: "
-    prompt "USERNAME" "notsecret"
-    USERNAME=$(sanitize $USERNAME) && export USERNAME
-    ask "Password: "
-    prompt "PASSWORD" "secret"
-    echo
-
-    hash=$(echo "$PASSWORD" | sha1sum | sed 's/ .*//')
-    auth=$(sqlite3 $DB "SELECT user, password FROM accounts WHERE user='$USERNAME' AND password='$hash';")
-
-    [[ "$auth" ]] && info "Success" && sleep 1 && break
-    notice "Login failed, try again ("$count"/"$FAILURE_COUNT")."
-    let count++
-  done
-  let count--
-  [[ $auth ]] || quit "Too many failed attempts! ("$count"/"$FAILURE_COUNT")."
-}
-
-###################################################
-# Checks if user already exists in database
-# Globals:
-#   USERNAME - Username to validate
-#   AVAILABLE_USER - 0 if username is note taken
-# Arguments:
-#   None
-# Returns:
-#   None
-###################################################
-
-verify_new_user(){
-  local exists="$(sqlite3 "$DB" "SELECT user FROM accounts WHERE user='$USERNAME';")"
-  if [[ "$exists" ]]; then
-    AVAILABLE_USER=1
-    notice "User already exists! Try a different one."
-  else
-    AVAILABLE_USER=0
-    echo "Your username is ${MF}$USERNAME${N}"
-  fi
-}
-
-###########################################################
-# Validate password, hash, and write account to database
-# Globals:
-#   PASSWORD      - Password to validate and store in db
-#   USERNAME      - Used to create account in database
-#   FAILURE_COUNT - Max # of authentication failures
-#   CLIENT        - IP address of connecting user
-#   EXPIRATION    - Date/time account expires
-# Arguments:
-#   None
-# Returns:
-#   None
-###########################################################
-
-verify_new_password(){
-  local count=1
-  local hash
-  while [[ "$PASSWORD" != "$PASSWORD_VERIFY" ]] || [[ "${#PASSWORD}" -lt "$MIN_PASSWD_LEN" ]]; do
-    if [[ "$count" -lt "$FAILURE_COUNT" ]]; then
-      notice "Passwords do not match or meet length requirements (${BF}"${MIN_PASSWD_LEN}"${N}${Y}). Try again ("$count"/"$FAILURE_COUNT")."
-      choose_password
-    else
-      quit "Too many failed attempts! ("$count"/"$FAILURE_COUNT")."
-    fi
-    let count++
-  done
-
-  readonly hash=$(echo "$PASSWORD" | sha1sum | sed 's/ .*//')
-  sqlite3 "$DB" "pragma foreign_keys = on; INSERT INTO accounts VALUES('"${USERNAME}"','${hash}', strftime('%s', 'now'));" 2>/dev/null || quit "Couldn't write to $DB!"
-  log "${USERNAME}: Account created from $CLIENT"
-
-  echo "Your account will expire on ${MF}$EXPIRATION${N}"
 }
 
 menu_loop(){
@@ -370,35 +193,11 @@ config_menu(){
   [[ "$BANNER" ]] && clear && echo "$BANNER"
 
   # This is how we handle using the same account for multiple environments
-  attach=$(sqlite3 $DB "SELECT environment FROM environments WHERE user='$USERNAME' AND environment='$BASE'";)
+  attach=$(sqlite3 $DB "SELECT environment FROM environments WHERE user='$USER' AND environment='$BASE'";)
   if [[ $attach ]]; then
     $MODULE attach # Call function in module to attach to existing environment
   else
     $MODULE start  # Call function in module to create environment
-  fi
-}
-
-###########################################################
-# Reprompt if user did not select new or existing user
-# Globals:
-#   None
-# Arguments:
-#   None
-# Returns:
-#   None
-###########################################################
-
-try_again(){
-  local try
-  ask "I didn't understand your response. Would you like to try again? "
-  prompt "try" "notsecret" "yes" "no"
-  # Normalize to lowercase
-  try=${try,,}
-  if [[ "$try" =~ ^[yn]$ ]] || [[ "$try" =~ ^[y][e][s]$ ]] || [[ "$try" =~ ^[n][o]$ ]]; then
-     [[ "$try" =~ ^y$   ]]  || [[ "$try" =~ ^[y][e][s]$ ]] && identify
-     [[ "$try" =~ ^n$   ]]  || [[ "$try" =~ ^[n][o]$    ]] && quit "user decided to leave from try_again"
-  else
-    quit "User forced to exit from try_again because of invalid response to question"
   fi
 }
 
