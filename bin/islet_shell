@@ -18,7 +18,6 @@ export TERM
 export PPID HOST_PORT="$PPID"
 export TMOUT=60
 export CONFIG
-export USER
 readonly CLIENT SRCPORT SERVER DSTPORT SSH_TTY TERM PPID TMOUT
 
 err(){
@@ -48,12 +47,12 @@ readonly TIME=$(date +"%s")
 readonly EXPIRATION=$(date --date=@$((TIME+86400*DAYS)) +"%c")
 
 # Display ISLET Banner
-if [[ "$ARG" != "nobanner" ]]; then
-  test -f "${ANIMATE:-notset}" && islet_banner | pv -qL "$ANIMATE_SPEED" || islet_banner
-  # Press key to continue
-  timecount $TMOUT
-  clear && echo
-fi
+#if [[ "$ARG" != "nobanner" ]]; then
+#  test -f "${ANIMATE:-notset}" && islet_banner | pv -qL "$ANIMATE_SPEED" || islet_banner
+#  # Press key to continue
+#  timecount $TMOUT
+#  clear && echo
+#fi
 
 #######################################
 # Create SQLite database
@@ -114,97 +113,49 @@ identify(){
   fi
 }
 
-menu_loop(){
-  while true; do
-    { [[ -d "$CONFIG_DIR" ]] && cd "$CONFIG_DIR"; } || quit "Unable to access ${CONFIG_DIR}!"
-    LIST=()
-    config_menu
-  done
-}
+connect(){
 
-config_menu(){
-  local count=0
-  local menu
-  local attach
-  # Configuration menu
-  notice "\t\t\t\tAvailable configurations:\n"
-  printf '\t\t\t%-29s %-7s %-30s\n' "${B}Configuration${N}" "|" "${B}Description${N}"
-  printf '\t\t\t%-30s %-7s %-30s\n' "${BF}$SPACER1${N}" "|" "${BF}$SPACER1${N}"
+  case $LAB in
 
-  # Iterate over configuration files in $CONFIG_DIR and display them as options
-  # It prints the config file ($config) and its description ($DESCRIPTION)
-  unset BANNER VISIBLE ENABLE PLUGIN config config_name
-  for config in environments/*.conf plugins/*.conf; do
-    [[ -f "$config" ]] && . "$config"
-    if [[ "$VISIBLE" = "yes" || "$ENABLE" = "yes" ]]; then
-      config_name="$(basename $config)" # blah.conf
-      printf '\t\t\t%-30s %-7s %-30s\n' "${WF}$config_name${N}" "|" "${U}$DESCRIPTION${N}"
-      LIST+=("$config")
-    fi
-    unset BANNER VISIBLE ENABLE PLUGIN config config_name
-  done
+    L1)
+      SELECTION="tcpdump"
+      ;;
+    *)
+      echo -n "You have reached the end of the internet...you have seen all there is to see...please go back...now"
+      ;;
+  esac
 
-  # Quit if there are no config files present
-  [[ "${#LIST[@]}" -eq 0 ]] && quit "\t\t\tNo configurations available!"
-  echo && unset BANNER
-  notice "Choose a number to load the configuration (or ^C to exit):"
+  CONFIGURATION="environments/${SELECTION}.conf"
 
-  PS3="${Y}[${N}${BF}Choice${N}${Y}]${N}: "
-  # Here the user chooses the configuration from the menu
-  # Inherit the variables from the config file after selection
-  select CONFIGURATION in "${LIST[@]}"
-  do
-    menu=1
+  if [[ $ACT == "START" ]]; then
     if [[ -f "$CONFIG_DIR/$CONFIGURATION" ]]; then
-      . "$CONFIG_DIR/$CONFIGURATION" # /etc/islet + / + environments/blah.conf
-      # Export for use in modules
-      BASE=$(basename $(basename $CONFIGURATION) .conf)
-      export CONFIGURATION  # environments/blah.conf
-      export BASE           # blah
-      break
-    else
-      let count++
-      if [[ "$count" -ge "$FAILURE_COUNT" ]]; then
-        quit "Too many failed attempts! ($count/$FAILURE_COUNT)"
-      fi
-      alert "Invalid choice! Try again ($count/$FAILURE_COUNT)"
+        . "$CONFIG_DIR/$CONFIGURATION" # /etc/islet + / + environments/blah.conf
+        # Export for use in modules
+        BASE=$(basename $(basename $CONFIGURATION) .conf)
+        export CONFIGURATION  # environments/blah.conf
+        export BASE           # blah
+      else
+        alert "Something went wrong! Ask instructor for assistance."
     fi
-  done
-
-  unset LIST
-
-  # If configuration is for plugin then execute it
-  if [[ $PLUGIN ]]; then
-    if [[ -f "$INSTALL_DIR/plugins/$PLUGIN" ]]; then
-      . "$INSTALL_DIR/plugins/$PLUGIN"
+    [[ "$BANNER" ]] && clear && echo "$BANNER"
+    attach=$(sqlite3 $DB "SELECT environment FROM environments WHERE user='$USER' AND environment='$BASE'";)
+    if [[ $attach ]]; then
+      $MODULE attach # Call function in module to attach to existing environment
     else
-      alert "Plugin $PLUGIN does not exist..contact the administrator."
+      $MODULE start  # Call function in module to create environment
     fi
-    # Go back to menu_loop after
-    unset PLUGIN
-    return 0
-  fi
-
-  # Avoid launching last value of CONFIGURATION when user sends EOF
-  [[ $menu ]] || quit "Quit by user..."
-  unset menu
-
-  # Display environment banner
-  [[ "$BANNER" ]] && clear && echo "$BANNER"
-
-  # This is how we handle using the same account for multiple environments
-  attach=$(sqlite3 $DB "SELECT environment FROM environments WHERE user='$USER' AND environment='$BASE'";)
-  if [[ $attach ]]; then
-    $MODULE attach # Call function in module to attach to existing environment
+  elif [[ $ACT == "DELETE" ]]; then
+    sqlite3 "$DB" "pragma foreign_keys = on; DELETE FROM environments WHERE user='$USER' AND environment='$SELECTION';"
+    $SUDO_DOCKER docker stop "${SELECTION}.$USER" 2>&1 > /dev/null
+    $SUDO_DOCKER docker rm "${SELECTION}.$USER" 2>&1 > /dev/null
   else
-    $MODULE start  # Call function in module to create environment
+    echo "Hmmm intresting choice...."
   fi
 }
 
 trap 'echo; quit "Trap received, exiting..."' 1 2 3 20
-# It all begins here
 is_sqlite
 $MODULE verify
 identify
-menu_loop
+connect
 exit
