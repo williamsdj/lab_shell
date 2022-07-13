@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-if [[ -f "$SHELL" ]]; then
-  exec "$SHELL"
-  alert "Failed to execute ${PLUGIN}..contact the administrator"
-fi

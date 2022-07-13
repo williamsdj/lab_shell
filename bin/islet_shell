@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 # Global Declarations
-ARG="$1"
-ARGC=$#
 CONFIG=/etc/islet/islet.conf
-COUNT=0
-LIST=()
-ANIMATE=$(which pv 2>/dev/null)
-ANIMATE_SPEED=90
-TIMEOUT="8h"
 
 # Store some stuff, these can be referenced from config files
 read CLIENT SRCPORT SERVER DSTPORT <<<"${SSH_CONNECTION}"
@@ -39,20 +32,9 @@ fi
 export -f import_configs
 
 # Rewrite MODULE variable for ease of use
-MODULE="$INSTALL_DIR/modules/$MODULE"
+MODULE="$INSTALL_DIR/modules/$MODULE" # /opt/islet/modules/docker
 
 clear
-
-readonly TIME=$(date +"%s")
-readonly EXPIRATION=$(date --date=@$((TIME+86400*DAYS)) +"%c")
-
-# Display ISLET Banner
-#if [[ "$ARG" != "nobanner" ]]; then
-#  test -f "${ANIMATE:-notset}" && islet_banner | pv -qL "$ANIMATE_SPEED" || islet_banner
-#  # Press key to continue
-#  timecount $TMOUT
-#  clear && echo
-#fi
 
 #######################################
 # Create SQLite database
@@ -120,8 +102,24 @@ connect(){
     L1)
       SELECTION="tcpdump"
       ;;
+    L2)
+      SELECTION="tcpdump"
+      ;;
+    L3)
+      SELECTION="tcpdump"
+      ;;
+    L4)
+      SELECTION="tcpdump"
+      ;;
+    L5)
+      SELECTION="tcpdump"
+      ;;
+    L6)
+      SELECTION="tcpdump"
+      ;;
     *)
       echo -n "You have reached the end of the internet...you have seen all there is to see...please go back...now"
+      exit
       ;;
   esac
 
@@ -130,26 +128,30 @@ connect(){
   if [[ $ACT == "START" ]]; then
     if [[ -f "$CONFIG_DIR/$CONFIGURATION" ]]; then
         . "$CONFIG_DIR/$CONFIGURATION" # /etc/islet + / + environments/blah.conf
-        # Export for use in modules
+        # Export for use in docker module
         BASE=$(basename $(basename $CONFIGURATION) .conf)
         export CONFIGURATION  # environments/blah.conf
         export BASE           # blah
       else
         alert "Something went wrong! Ask instructor for assistance."
+        exit
     fi
-    [[ "$BANNER" ]] && clear && echo "$BANNER"
+
     attach=$(sqlite3 $DB "SELECT environment FROM environments WHERE user='$USER' AND environment='$BASE'";)
     if [[ $attach ]]; then
-      $MODULE attach # Call function in module to attach to existing environment
+      $MODULE attach # Call function in docker module to attach to existing environment
     else
-      $MODULE start  # Call function in module to create environment
+      $MODULE start  # Call function in docker module to create environment
     fi
+
   elif [[ $ACT == "DELETE" ]]; then
+  #check if container exists else exit
     sqlite3 "$DB" "pragma foreign_keys = on; DELETE FROM environments WHERE user='$USER' AND environment='$SELECTION';"
     $SUDO_DOCKER docker stop "${SELECTION}.$USER" 2>&1 > /dev/null
     $SUDO_DOCKER docker rm "${SELECTION}.$USER" 2>&1 > /dev/null
   else
     echo "Hmmm intresting choice...."
+    exit
   fi
 }
 

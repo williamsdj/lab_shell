@@ -1,8 +1,0 @@
-description "ISLET container"
-author "Jon Schipp"
-start on filesystem and started docker
-stop on runlevel [!2345]
-respawn
-script
-  /usr/bin/docker start -a islet
-end script

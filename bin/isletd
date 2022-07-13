@@ -102,21 +102,6 @@ clear_vars(){
 }
 
 ###################################################
-# Get time for time based tasks
-# Globals:
-#   None
-# Arguments:
-#   None
-# Returns:
-#   None
-###################################################
-
-get_time(){
-  TIME=$(date +"%s")
-  EXPIRATION=$(date --date=@$((TIME+86400*DAYS)) +"%c")
-}
-
-###################################################
 # Remove users older than days
 # Globals:
 #   DB
