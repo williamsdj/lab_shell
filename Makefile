@@ -72,12 +72,11 @@ install-files:
 	mkdir -m 755 -p $(CONFIG_DIR)/modules $(CONFIG_DIR)/environments $(CONFIG_DIR)/plugins
 	mkdir -m 755 -p $(LIB_DIR) $(BIN_DIR) $(PLUGIN_DIR) $(MODULE_DIR)
 	install -o 0 -g 0 -m 644 config/islet.conf $(CONFIG_DIR)/
-	install -o 0 -g 0 -m 644 config/plugins/*.conf $(CONFIG_DIR)/plugins/
 	install -o 0 -g 0 -m 644 config/modules/*.conf $(CONFIG_DIR)/modules/
+	install -o 0 -g 0 -m 644 labconfs/*.conf $(CONFIG_DIR)/environments/
 	install -o 0 -g 0 -m 644 lib/libislet $(LIB_DIR)/libislet
 	install -o 0 -g 0 -m 755 bin/islet_shell $(BIN_DIR)/$(PROG)_shell
 	install -o 0 -g 0 -m 755 bin/isletd $(BIN_DIR)/$(PROG)d
-	install -o 0 -g 0 -m 755 plugins/* $(PLUGIN_DIR)/
 	install -o 0 -g 0 -m 755 modules/* $(MODULE_DIR)/
 	install -o 0 -g 0 -m 644 docs/islet.5 $(MAN_DIR)/man5/islet.5
 	$(Q)test -f /sbin/start && install -o 0 -g 0 -m 644 init/isletd.conf /etc/init || true
