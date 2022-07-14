@@ -1,17 +1,17 @@
-.PHONY: default help install uninstall pull update logo mrproper package
+.PHONY: default help install uninstall pull update
 
 PROG 		= lab_shell
 VERSION		= 1.0.0
-INSTALL_DIR = /opt/$(PROG)
+INSTALL_DIR 	= /opt/rsh
 BIN_DIR 	= $(INSTALL_DIR)/bin
-LAB_DIR		= $(INSTALL_DIR)/lab 
+LAB_DIR		= $(INSTALL_DIR)/lab
 TMP_DIR		= $(INSTALL_DIR)/tmp
 REPO		= $(shell grep url .git/config)
-Q  			= @ 
+Q  		= @
 bold   		= $(shell tput bold)
 underline 	= $(shell tput smul)
 normal 		= $(shell tput sgr0)
-red			= $(shell tput setaf 1)
+red		= $(shell tput setaf 1)
 yellow	 	= $(shell tput setaf 3)
 
 default: help
@@ -26,10 +26,10 @@ install: install-files
 
 install-files:
 	$(Q)echo " $(yellow)Installing $(PROG)$(normal)"
-	mkdir -m 755 -p $(INSTALL_DIR)/{bin,lab} 
-	mkdir -m 1777 $(INSTALL_DIR)/tmp
-	install -o 0 -g 0 -m 755 lab_shell $(BIN_DIR)/
-	install -o 0 -g 0 -m 755 template/*.conf $(LAB_DIR)/
+	mkdir -m 755 -p $(BIN_DIR)
+	mkdir -m 755 -p $(LAB_DIR)
+	mkdir -m 1777 $(TMP_DIR)
+	install -o 0 -g 0 -m 755 shell $(BIN_DIR)/
 
 uninstall:
 	$(Q)echo " $(yellow)Uninstalling $(PROG)$(normal)"
