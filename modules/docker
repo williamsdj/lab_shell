@@ -111,8 +111,8 @@ attach(){
   local result
   # User is re-attaching to previous image
   log "${USER}: Returning user from $CLIENT"
-  notice "Welcome back!"
-  mention "$MOTD"
+  # notice "Welcome back!"
+  # mention "$MOTD"
   is_debug "opt: $SUDO_DOCKER docker start -i ${BASE}.${USER}"
   $SUDO_DOCKER docker start -i "${BASE}.${USER}"
   exit_handler $? || return 1
@@ -406,7 +406,9 @@ start(){
 
   local name_opt="--name="${BASE}.${USER}" --tty --hostname $HOSTNAME"
   local res_opt="--cpu-shares ${CPUSHARES:-1024} --memory ${MEMORY:-0} --memory-swap ${SWAP:--1}"
-  local net_opt="$PUBLISH --net $NETWORK --dns $DNS --add-host $HOSTNAME:127.0.0.1"
+  #local net_opt="$PUBLISH --net $NETWORK --dns $DNS --add-host $HOSTNAME:127.0.0.1"
+  local port_opt="" # add logic to check if exists then add, look at port_forward above  
+  local net_opt="--net $NETWORK --dns $DNS"
   local glb_opt="$GLOBAL_OPTIONS"
   local oth_opt="$LOCAL_OPTIONS"
   local cap_opt="$CAPABILITIES_OPTIONS"
@@ -422,8 +424,8 @@ start(){
   is_debug "shell: CLIENT=$CLIENT SRCPORT=$SRCPORT SERVER=$SERVER DSTPORT=$DSTPORT SSH_TTY=$SSH_TTY TERM=$TERM PPID=$PPID TMOUT=$TMOUT"
   is_debug "opt: $SUDO_DOCKER docker run $name_opt $res_opt $net_opt $glb_opt $oth_opt $mnt_opt $cap_opt $lmt_opt $dir_opt $env_opt $img_opt $tim_opt $cmd_opt"
 
-  notice "Enjoy yourself!"
-  mention "$MOTD"
+  # notice "Enjoy yourself!"
+  # mention "$MOTD"
 
   # Run container
   eval $SUDO_DOCKER docker run "$name_opt $res_opt $net_opt $glb_opt $oth_opt $cap_opt $lmt_opt $mnt_opt $dir_opt $env_opt $img_opt $tim_opt $cmd_opt" "$INFOLEVEL"

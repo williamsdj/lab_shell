@@ -100,22 +100,22 @@ connect(){
   case $LAB in
 
     L1)
-      SELECTION="tcpdump"
+      SELECTION="lab01"
       ;;
     L2)
-      SELECTION="tcpdump"
+      SELECTION="lab02"
       ;;
     L3)
-      SELECTION="tcpdump"
+      SELECTION="lab03"
       ;;
     L4)
-      SELECTION="tcpdump"
+      SELECTION="lab04"
       ;;
     L5)
-      SELECTION="tcpdump"
+      SELECTION="lab05"
       ;;
     L6)
-      SELECTION="tcpdump"
+      SELECTION="lab06"
       ;;
     *)
       echo -n "You have reached the end of the internet...you have seen all there is to see...please go back...now"
