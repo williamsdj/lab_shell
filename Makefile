@@ -4,7 +4,7 @@ PROG 		= lab_shell
 VERSION		= 1.0.0
 INSTALL_DIR 	= /opt/rsh
 BIN_DIR 	= $(INSTALL_DIR)/bin
-LAB_DIR		= $(INSTALL_DIR)/lab
+CONF_DIR		= $(INSTALL_DIR)/conf
 TMP_DIR		= $(INSTALL_DIR)/tmp
 REPO		= $(shell grep url .git/config)
 Q  		= @
@@ -19,15 +19,15 @@ default: help
 help:
 	$(Q)echo "$(bold)$(PROG) (v$(VERSION)) installation targets:$(normal)"
 	$(Q)echo " $(red)install$(normal)                  	- Install and configure on the host"
-	$(Q)echo " $(red)uninstall$(normal) 	                - Uninstalls ($(yellow)Backup first!$(normal))"
-	$(Q)echo " $(red)update$(normal)               		- Update code and reinstall islet"
+	$(Q)echo " $(red)uninstall$(normal) 	               - Uninstalls ($(yellow)Backup first!$(normal))"
+	$(Q)echo " $(red)update$(normal)               		  - Update code and reinstall islet"
 
 install: install-files
 
 install-files:
 	$(Q)echo " $(yellow)Installing $(PROG)$(normal)"
 	mkdir -m 755 -p $(BIN_DIR)
-	mkdir -m 755 -p $(LAB_DIR)
+	mkdir -m 755 -p $(CONF_DIR)
 	mkdir -m 1777 $(TMP_DIR)
 	install -o 0 -g 0 -m 755 shell $(BIN_DIR)/
 

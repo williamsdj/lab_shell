@@ -2,8 +2,8 @@
 #######################################
 # Global variables
 #######################################
-CONFIG_DIR="/opt/lab_shell"
-DB="${CONFIG_DIR}/tmp/lab_shell.db"     
+CONFIG_DIR="/opt/rsh"
+DB="${CONFIG_DIR}/tmp/shell.db"     
 DEBUG="no"
 
 read -r CLIENT SRCPORT SERVER DSTPORT <<<"${SSH_CONNECTION}"
@@ -261,13 +261,13 @@ connect(){
   # check if LAB value is in range of lab00-29
   if [[ $LAB =~ ^lab(0[0-9])|(1[0-9])|(2[0-9]) ]]; then 
     
-    CONFIGURATION="labs/${LAB}.conf"
+    CONFIGURATION="conf/${LAB}.conf"
   
     if [[ $ACT == "START" ]]; then
       if [[ -f "$CONFIG_DIR/$CONFIGURATION" ]]; then
           . "$CONFIG_DIR/$CONFIGURATION" 
         else
-          alert "Something went wrong! Ask your instructor for assistance."
+          printf "Something went wrong! Ask your instructor for assistance.\n"
           exit
       fi
   
@@ -287,7 +287,7 @@ connect(){
       exit
     fi
   else
-    alert "Requested lab is not available. Ask your instructor for assistance." 
+    printf "Requested lab is not available. Ask your instructor for assistance.\n" 
     exit 
   fi
 }
