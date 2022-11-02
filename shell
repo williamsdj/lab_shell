@@ -264,7 +264,7 @@ identify(){
 
 connect(){
   # check if LAB value is in range of lab00-29
-  if [[ $LAB =~ ^lab(1\.[1-6]b*)|(2\.[1-4]b*)|(3\.[1-5]b*)|(4\.[1-3]b*)|(5\.[1-2]b*) ]]; then 
+  if [[ $LAB =~ ^lab(1\.[1-7]b*)|(2\.[1-4]b*)|(3\.[1-5]b*)|(4\.[1-3]b*)|(5\.[1-2]b*) ]]; then 
     
     CONFIGURATION="conf/${LAB}.conf"
   
