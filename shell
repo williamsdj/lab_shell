@@ -3,7 +3,7 @@
 # Global variables
 #######################################
 CONFIG_DIR="/opt/rsh"
-DB="${CONFIG_DIR}/tmp/shell.db"     
+DB="${CONFIG_DIR}/tmp/shell.db"
 DEBUG="no"
 
 read -r CLIENT SRCPORT SERVER DSTPORT <<<"${SSH_CONNECTION}"
@@ -36,7 +36,7 @@ log(){
 quit(){ local message="$1"; printf "%s" "${message:-Exiting session!}"; log "$message"; exit 1; }
 
 #######################################
-# Docker functions 
+# Docker functions
 #######################################
 
 verify_availability(){
@@ -82,7 +82,7 @@ check_capabilities(){
   [[ "$DROP_ALL" = "yes" ]] && CAPABILITIES_OPTIONS="--cap-drop all" && return 0
   [[ "$ADD_ALL"  = "yes" ]] && CAPABILITIES_OPTIONS="--cap-add  all" && return 0
 
-  # Add these to labs/blah.conf to overide defaults below 
+  # Add these to labs/blah.conf to overide defaults below
   ## Enabled by default in Docker (we disable them for improved security)
   AUDIT_WRITE="${CAP_AUDIT_WRITE:-no}"           && set_capabilities AUDIT_WRITE $AUDIT_WRITE
   CHOWN="${CAP_CHOWN:-no}"                       && set_capabilities CHOWN $CHOWN
@@ -102,20 +102,20 @@ check_capabilities(){
 
   ## Enabled/Others
   AUDIT_CONTROL="${CAP_AUDIT_CONTROL:-no}"       && set_capabilities AUDIT_CONTROL $AUDIT_CONTROL
-  AUDIT_READ="${CAP_AUDIT_READ:-no}"             && set_capabilities AUDIT_READ $AUDIT_READ 
+  AUDIT_READ="${CAP_AUDIT_READ:-no}"             && set_capabilities AUDIT_READ $AUDIT_READ
   BLOCK_SUSPEND="${CAP_BLOCK_SUSPEND:-no}"       && set_capabilities BLOCK_SUSPEND $BLOCK_SUSPEND
-  BPF="${CAP_BPF:-no}"                           && set_capabilities BPF $BPF 
-  CHKPOINT_RESTORE="${CAP_CHKPOINT_RESTORE:-no}" && set_capabilities BPF $CHKPOINT_RESTORE 
+  BPF="${CAP_BPF:-no}"                           && set_capabilities BPF $BPF
+  CHKPOINT_RESTORE="${CAP_CHKPOINT_RESTORE:-no}" && set_capabilities BPF $CHKPOINT_RESTORE
   DAC_READ_SEARCH="${CAP_DAC_READ_SEARCH:-no}"   && set_capabilities DAC_READ_SEARCH $DAC_READ_SEARCH
   IPC_LOCK="${CAP_IPC_LOCK:-no}"                 && set_capabilities IPC_LOCK $IPC_LOCK
   IPC_OWNER="${CAP_IPC_OWNER:-no}"               && set_capabilities IPC_OWNER $IPC_OWNER
   LEASE="${CAP_LEASE:-no}"                       && set_capabilities LEASE $LEASE
   LINUX_IMMUTABLE="${CAP_LINUX_IMMUTABLE:-no}"   && set_capabilities LINUX_IMMUTABLE $LINUX_IMMUTABLE
-  MAC_ADMIN="${CAP_MAC_ADMIN:-no}"               && set_capabilities MAC_ADMIN $MAC_ADMIN 
+  MAC_ADMIN="${CAP_MAC_ADMIN:-no}"               && set_capabilities MAC_ADMIN $MAC_ADMIN
   MAC_OVERRIDE="${CAP_MAC_OVERRIDE:-no}"         && set_capabilities MAC_OVERRIDE $MAC_OVERRIDE
   NET_ADMIN="${CAP_NET_ADMIN:-no}"               && set_capabilities NET_ADMIN $NET_ADMIN
   NET_BROADCAST="${CAP_NET_BROADCAST:-no}"       && set_capabilities NET_BROADCAST $NET_BROADCAST
-  PERFMON="${CAP_PERFMON:-no}"                   && set_capabilities PERFMON $PERFMON 
+  PERFMON="${CAP_PERFMON:-no}"                   && set_capabilities PERFMON $PERFMON
   SYSLOG="${CAP_SYSLOG:-no}"                     && set_capabilities SYSLOG $SYSLOG
   SYS_ADMIN="${CAP_SYS_ADMIN:-no}"               && set_capabilities SYS_ADMIN $SYS_ADMIN
   SYS_BOOT="${CAP_SYS_BOOT:-no}"                 && set_capabilities SYS_BOOT $SYS_BOOT
@@ -169,7 +169,9 @@ start(){
   env_setup
 
   # Note: Publishing ports not supported with this version
-  local name_opt="--name="${LAB}.${USER}" --tty"
+  [[ "$ENVIRONMENT" == "systemd" ]] && local atch_opt="--detach" || local atch_opt="--interactive --tty"
+  [[ "$REMOVE" == "True" ]] && local rm_opt="--rm" || local rm_opt=""
+  local name_opt="--name="${LAB}.${USER}""
   [[ "$HOSTNAME" ]] && local hname_opt="--hostname $HOSTNAME"
   local res_opt="--cpu-shares ${CPUSHARES:-1024} --memory ${MEMORY:-0} --memory-swap ${SWAP:--1}"
   local net_opt="--net $NETWORK"
@@ -179,21 +181,32 @@ start(){
   local cap_opt="$CAPABILITIES_OPTIONS"
   local lmt_opt="$ULIMIT_OPTIONS"
   local mnt_opt="$MOUNT"
+  local tmpfs_opt="$TMPFS"
   local dir_opt="--workdir ${WORKDIR:-/home/$VIRTUSER}"
   local env_opt="--user ${VIRTUSER:-root} $ENV_CMD"
-  local img_opt="--interactive $ENVIRONMENT"
-  local tim_opt="timeout -s KILL $TIMEOUT"
-  local cmd_opt="${COMMAND:-bash}"
+  local img_opt="$ENVIRONMENT"
+  [[ "$ENVIRONMENT" != "systemd" ]] && local tim_opt="timeout -s KILL $TIMEOUT" || local tim_opt=""
+  [[ "$ENVIRONMENT" == "systemd" ]] && local cmd_opt="" || local cmd_opt="${COMMAND:-bash}"
 
   # If debugging is yes
   is_debug "shell: CLIENT=$CLIENT SRCPORT=$SRCPORT SERVER=$SERVER DSTPORT=$DSTPORT SSH_TTY=$SSH_TTY TERM=$TERM PPID=$PPID TMOUT=$TMOUT"
-  is_debug "opt:  docker run $name_opt $hname_opt $res_opt $net_opt $dns_opt $glb_opt $oth_opt $mnt_opt $cap_opt $lmt_opt $dir_opt $env_opt $img_opt $tim_opt $cmd_opt"
+  is_debug "opt:  docker run $atch_opt $rm_opt $name_opt $hname_opt $res_opt $net_opt $dns_opt $glb_opt $oth_opt $mnt_opt $cap_opt $lmt_opt $dir_opt $env_opt $img_opt $tim_opt $cmd_opt"
 
   # printf "%s" "$MOTD"
 
   log "${USER}@${CLIENT}: Started $LAB"
-  sqlite3 "$DB" "pragma foreign_keys = on; INSERT INTO environments(user, environment) values ('$USER', '$LAB');" 2>/dev/null
-  eval docker run "$name_opt $hname_opt $res_opt $net_opt $dns_opt $glb_opt $oth_opt $cap_opt $lmt_opt $mnt_opt $dir_opt $env_opt $img_opt $tim_opt $cmd_opt"
+  [[ "$REMOVE" != "True" ]] && sqlite3 "$DB" "pragma foreign_keys = on; INSERT INTO environments(user, environment) values ('$USER', '$LAB');" 2>/dev/null
+  if [[ "$ENVIRONMENT" == "systemd" ]]; then
+    eval docker run "$atch_opt $rm_opt $name_opt $hname_opt $res_opt $net_opt $dns_opt $tmpfs_opt $mnt_opt $cap_opt $lmt_opt $img_opt" >/dev/null 2>&1
+    exec
+    if [[ "$REMOVE" == "True" ]]; then
+      sqlite3 "$DB" "pragma foreign_keys = on; DELETE FROM environments WHERE user='$USER' AND environment='$LAB';"
+      stop
+      remove
+    fi
+  else
+    eval docker run "$atch_opt $rm_opt $name_opt $hname_opt $res_opt $net_opt $dns_opt $glb_opt $oth_opt $cap_opt $lmt_opt $mnt_opt $dir_opt $env_opt $img_opt $tim_opt $cmd_opt"
+  fi
   exit_handler $?
   log "${USER}@${CLIENT}: Exited $LAB"
 }
@@ -206,9 +219,19 @@ attach(){
   return 0
 }
 
+exec(){
+  log "${USER}@${CLIENT}: exec $LAB"
+  sleep 1
+  eval docker exec -it "${LAB}.${USER} rm /run/nologin >/dev/null 2>&1"
+  eval docker exec -it "$dir_opt $env_opt ${LAB}.${USER} $tim_opt ${COMMAND}"
+  exit_handler $? || return 1
+  log "${USER}@${CLIENT}: Exited $LAB"
+  return 0
+}
+
 stop(){
   log "${USER}@${CLIENT}: Stopped $LAB"
-  docker stop "${LAB}.${USER}" >/dev/null 2>&1
+  docker kill "${LAB}.${USER}" >/dev/null 2>&1
   return 0
 }
 
@@ -263,42 +286,42 @@ identify(){
 #######################################
 
 connect(){
-  # check if LAB value is in range of lab00-29
-  if [[ $LAB =~ ^lab(1\.[1-7]b*)|(2\.[1-4]b*)|(3\.[1-5]b*)|(4\.[1-3]b*)|(5\.[1-2]b*) ]]; then 
-    
+  # check if LAB value is in range
+  if [[ $LAB =~ ^lab(0\.0)|(1\.[1-8])|(2\.[1-7])|(3\.[1-9])|(4\.[1-7])|(5\.[1-6]) ]]; then
+
     CONFIGURATION="conf/${LAB}.conf"
-  
+
     if [[ $ACT == "START" ]]; then
       if [[ -f "$CONFIG_DIR/$CONFIGURATION" ]]; then
-          . "$CONFIG_DIR/$CONFIGURATION" 
+          . "$CONFIG_DIR/$CONFIGURATION"
         else
           printf "Something went wrong! Ask your instructor for assistance.\n"
           exit
       fi
-  
-      attach=$(sqlite3 $DB "SELECT environment FROM environments WHERE user='$USER' AND environment='$LAB'";)
-      if [[ $attach ]]; then
-        attach 
+
+      existing=$(sqlite3 $DB "SELECT environment FROM environments WHERE user='$USER' AND environment='$LAB'";)
+      if [[ $existing ]]; then
+        attach
       else
-        start  
+        start
       fi
-  
+
     elif [[ $ACT == "DELETE" ]]; then
       sqlite3 "$DB" "pragma foreign_keys = on; DELETE FROM environments WHERE user='$USER' AND environment='$LAB';"
       stop
-      remove 
+      remove
     else
       log "${USER}@${CLIENT}: Tried to pass invalid action $ACT"
       exit
     fi
   else
-    printf "Requested lab is not available. Ask your instructor for assistance.\n" 
-    exit 
+    printf "Requested lab is not available. Ask your instructor for assistance.\n"
+    exit
   fi
 }
 
 #######################################
-# Execution 
+# Execution
 #######################################
 
 trap 'echo; quit "Trap received, exiting..."' 1 2 3 20
