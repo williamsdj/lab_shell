@@ -288,31 +288,37 @@ connect(){
   # check if LAB value is in range
   if [[ $LAB =~ ^lab(0\.0)|(1\.[1-8])|(2\.[1-7])|(3\.[1-9])|(4\.[1-7])|(5\.[1-6]) ]]; then
 
-    CONFIGURATION="conf/${LAB}.conf"
+    ORIG_TOKEN="$(head -1 /home/student/logs/studentinfo | cut -d: -f2)"
+    if [[ ( "$ORIG_TOKEN" == "$PLAYER_TOKEN" ) || ( "$LAB" == "lab0.0" ) ]]; then
+      CONFIGURATION="conf/${LAB}.conf"
 
-    if [[ $ACT == "START" ]]; then
-      if [[ -f "$CONFIG_DIR/$CONFIGURATION" ]]; then
-          . "$CONFIG_DIR/$CONFIGURATION"
+      if [[ $ACT == "START" ]]; then
+        if [[ -f "$CONFIG_DIR/$CONFIGURATION" ]]; then
+            . "$CONFIG_DIR/$CONFIGURATION"
+          else
+            printf "Something went wrong! Ask your instructor for assistance.\n"
+            exit
+        fi
+
+        existing=$(sqlite3 $DB "SELECT environment FROM environments WHERE user='$USER' AND environment='$LAB'";)
+        if [[ $existing ]]; then
+          attach
         else
-          printf "Something went wrong! Ask your instructor for assistance.\n"
-          exit
-      fi
+          start
+        fi
 
-      existing=$(sqlite3 $DB "SELECT environment FROM environments WHERE user='$USER' AND environment='$LAB'";)
-      if [[ $existing ]]; then
-        attach
+      elif [[ $ACT == "DELETE" ]]; then
+        sqlite3 "$DB" "pragma foreign_keys = on; DELETE FROM environments WHERE user='$USER' AND environment='$LAB';"
+        stop
+        remove
       else
-        start
+        log "${USER}@${CLIENT}: Tried to pass invalid action $ACT"
+        exit
       fi
-
-    elif [[ $ACT == "DELETE" ]]; then
-      sqlite3 "$DB" "pragma foreign_keys = on; DELETE FROM environments WHERE user='$USER' AND environment='$LAB';"
-      stop
-      remove
-    else
-      log "${USER}@${CLIENT}: Tried to pass invalid action $ACT"
+    else 
+      printf "Student identification failure. Ask your instructor for assistance.\n"
       exit
-    fi
+    fi 
   else
     printf "Requested lab is not available. Ask your instructor for assistance.\n"
     exit
