@@ -286,7 +286,8 @@ identify(){
 
 connect(){
   # check if LAB value is in range
-  if [[ $LAB =~ ^lab(0\.0)|(1\.[1-8])|(2\.[1-7])|(3\.[1-9])|(4\.[1-7])|(5\.[1-6]) ]]; then
+  #if [[ $LAB =~ ^lab(0\.0)|(1\.[1-8])|(2\.[1-7])|(3\.[1-9])|(4\.[1-7])|(5\.[1-6]) ]]; then
+  if [[ -f "/opt/rsh/conf/$LAB.conf" ]]; then
 
     ORIG_TOKEN="$(head -1 /home/student/logs/studentinfo | cut -d: -f2)"
     if [[ ( "$ORIG_TOKEN" == "$PLAYER_TOKEN" ) || ( "$LAB" == "lab0.0" ) ]]; then
